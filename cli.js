@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+// Apply healthcheck patch before loading playwright modules
+require('./healthcheck-patch');
+
 const { program } = require('playwright-core/lib/utilsBundle');
 const { decorateCommand } = require('playwright/lib/mcp/program');
 
