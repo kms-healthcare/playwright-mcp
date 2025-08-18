@@ -11,11 +11,15 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License.
+ * limitations of the License.
  */
 
 import { z } from 'zod';
 import { defineTabTool } from './tool.js';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { writeFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 const uploadFile = defineTabTool({
   capability: 'core',
@@ -23,9 +27,9 @@ const uploadFile = defineTabTool({
   schema: {
     name: 'browser_file_upload',
     title: 'Upload files',
-    description: 'Upload one or multiple files',
+    description: 'Upload one or multiple files from S3',
     inputSchema: z.object({
-      paths: z.array(z.string()).describe('The absolute paths to the files to upload. Can be a single file or multiple files.'),
+      s3Keys: z.array(z.string()).describe('The S3 keys of the files to upload. Can be a single file or multiple files.'),
     }),
     type: 'destructive',
   },
@@ -37,12 +41,60 @@ const uploadFile = defineTabTool({
     if (!modalState)
       throw new Error('No file chooser visible');
 
-    response.addCode(`await fileChooser.setFiles(${JSON.stringify(params.paths)})`);
+    const bucketName = process.env.AWS_S3_BUCKET;
+    const region = process.env.AWS_REGION;
 
-    tab.clearModalState(modalState);
-    await tab.waitForCompletion(async () => {
-      await modalState.fileChooser.setFiles(params.paths);
-    });
+    if (!bucketName || !region) {
+      throw new Error('AWS_S3_BUCKET and AWS_REGION environment variables must be set');
+    }
+
+    const s3Client = new S3Client({ region });
+    const localPaths: string[] = [];
+
+    try {
+      for (const s3Key of params.s3Keys) {
+        const getObjectCommand = new GetObjectCommand({
+          Bucket: bucketName,
+          Key: s3Key,
+        });
+
+        const s3Response = await s3Client.send(getObjectCommand);
+
+        if (!s3Response.Body) {
+          throw new Error(`Failed to get file body for ${s3Key}`);
+        }
+
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of s3Response.Body as any) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        const fileName = s3Key.split('/').pop() || s3Key;
+        const localPath = join(tmpdir(), `playwright-upload-${Date.now()}-${fileName}`);
+        writeFileSync(localPath, buffer);
+        localPaths.push(localPath);
+      }
+
+      response.addCode(`await fileChooser.setFiles(${JSON.stringify(localPaths)}) // upload from s3: ${params.s3Keys.join(', ')}`);
+
+      tab.clearModalState(modalState);
+      await tab.waitForCompletion(async () => {
+        await modalState.fileChooser.setFiles(localPaths);
+      });
+
+      response.addResult(`Successfully uploaded ${localPaths.length} file(s) from S3`);
+    } finally {
+      // Clean up temporary local files
+      for (const localPath of localPaths) {
+        try {
+          unlinkSync(localPath);
+        } catch (error) {
+          // Log cleanup errors but don't fail the operation
+          console.warn(`Failed to clean up temporary file ${localPath}:`, error);
+        }
+      }
+    }
   },
   clearsModalState: 'fileChooser',
 });

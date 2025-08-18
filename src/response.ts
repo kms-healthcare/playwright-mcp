@@ -154,7 +154,7 @@ function renderTabSnapshot(tabSnapshot: TabSnapshot): string {
     lines.push(`### Downloads`);
     for (const entry of tabSnapshot.downloads) {
       if (entry.finished)
-        lines.push(`- Downloaded file ${entry.download.suggestedFilename()} to ${entry.outputFile}`);
+        lines.push(`- Downloaded file ${entry.download.suggestedFilename()} to s3 bucket`);
       else
         lines.push(`- Downloading file ${entry.download.suggestedFilename()} ...`);
     }

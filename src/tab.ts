@@ -23,6 +23,9 @@ import { ModalState } from './tools/tool.js';
 
 import type { Context } from './context.js';
 
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { readFileSync } from 'fs';
+
 type PageEx = playwright.Page & {
   _snapshotForAI: () => Promise<string>;
 };
@@ -118,6 +121,18 @@ export class Tab extends EventEmitter<TabEventsInterface> {
     };
     this._downloads.push(entry);
     await download.saveAs(entry.outputFile);
+    const bucketName = process.env.AWS_S3_BUCKET;
+    const region = process.env.AWS_REGION;
+    const s3Key = `${download.suggestedFilename()}`;
+    const s3Client = new S3Client({ region });
+    const content = readFileSync(entry.outputFile);
+
+    await s3Client.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: s3Key,
+      Body: content,
+    }));
+
     entry.finished = true;
   }
 
