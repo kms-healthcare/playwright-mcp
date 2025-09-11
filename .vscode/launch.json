@@ -1,0 +1,63 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Debug Playwright MCP CLI",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/cli.js",
+            "args": [
+                "--isolated",
+                "--browser",
+                "chromium",
+                "--no-sandbox",
+                "--port",
+                "8000",
+                "--host",
+                "0.0.0.0"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "env": {
+                "NODE_ENV": "development",
+                "DEBUG": "pw:mcp:*"
+            },
+            "outputCapture": "std",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Debug Playwright MCP CLI (with source maps)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/cli.js",
+            "args": [
+                "--isolated",
+                "--browser",
+                "chromium",
+                "--no-sandbox",
+                "--port",
+                "8000",
+                "--host",
+                "0.0.0.0"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            },
+            "outputCapture": "std",
+            "cwd": "${workspaceFolder}",
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/lib/**/*.js"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,16 @@
+{
+    "typescript.preferences.includePackageJsonAutoImports": "auto",
+    "debug.terminal.clearBeforeReusing": true,
+    "debug.console.closeOnEnd": false,
+    "debug.console.collapseIdenticalLines": true,
+    "debug.internalConsoleOptions": "neverOpen",
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "files.exclude": {
+        "**/node_modules": false,
+        "**/lib": false
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/lib": true
+    }
+}

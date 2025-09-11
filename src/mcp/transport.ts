@@ -40,6 +40,7 @@ async function startStdioTransport(serverBackendFactory: ServerBackendFactory) {
 }
 
 const testDebug = debug('pw:mcp:test');
+const traceDebug = debug('pw:mcp:trace');
 
 async function handleSSE(serverBackendFactory: ServerBackendFactory, req: http.IncomingMessage, res: http.ServerResponse, url: URL, sessions: Map<string, SSEServerTransport>) {
   if (req.method === 'POST') {
@@ -59,10 +60,10 @@ async function handleSSE(serverBackendFactory: ServerBackendFactory, req: http.I
   } else if (req.method === 'GET') {
     const transport = new SSEServerTransport('/sse', res);
     sessions.set(transport.sessionId, transport);
-    testDebug(`create SSE session: ${transport.sessionId}`);
+    traceDebug(`create SSE session: ${transport.sessionId}`);
     await mcpServer.connect(serverBackendFactory, transport, false);
     res.on('close', () => {
-      testDebug(`delete SSE session: ${transport.sessionId}`);
+      traceDebug(`delete SSE session: ${transport.sessionId}`);
       sessions.delete(transport.sessionId);
     });
     return;

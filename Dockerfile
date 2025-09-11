@@ -13,9 +13,10 @@ ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
 # Set the working directory
 WORKDIR /app
 
+# Copy package files
+COPY package.json package-lock.json ./
+
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
-    --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=package-lock.json,target=package-lock.json \
   npm ci --omit=dev && \
   # Install system dependencies for playwright
   npx -y playwright-core install-deps chromium
@@ -26,8 +27,6 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
 FROM base AS builder
 
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
-    --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=package-lock.json,target=package-lock.json \
   npm ci
 
 # Copy the rest of the app
