@@ -40,6 +40,7 @@ async function startStdioTransport(serverBackendFactory: ServerBackendFactory) {
 }
 
 const testDebug = debug('pw:mcp:test');
+const traceDebug = debug('pw:mcp:trace');
 
 async function handleSSE(serverBackendFactory: ServerBackendFactory, req: http.IncomingMessage, res: http.ServerResponse, url: URL, sessions: Map<string, SSEServerTransport>) {
   if (req.method === 'POST') {
@@ -59,10 +60,10 @@ async function handleSSE(serverBackendFactory: ServerBackendFactory, req: http.I
   } else if (req.method === 'GET') {
     const transport = new SSEServerTransport('/sse', res);
     sessions.set(transport.sessionId, transport);
-    testDebug(`create SSE session: ${transport.sessionId}`);
+    traceDebug(`create SSE session: ${transport.sessionId}`);
     await mcpServer.connect(serverBackendFactory, transport, false);
     res.on('close', () => {
-      testDebug(`delete SSE session: ${transport.sessionId}`);
+      traceDebug(`delete SSE session: ${transport.sessionId}`);
       sessions.delete(transport.sessionId);
     });
     return;
@@ -75,11 +76,36 @@ async function handleSSE(serverBackendFactory: ServerBackendFactory, req: http.I
 async function handleStreamable(serverBackendFactory: ServerBackendFactory, req: http.IncomingMessage, res: http.ServerResponse, sessions: Map<string, StreamableHTTPServerTransport>) {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
   if (sessionId) {
-    const transport = sessions.get(sessionId);
+    let transport = sessions.get(sessionId);
     if (!transport) {
-      res.statusCode = 404;
-      res.end('Session not found');
-      return;
+      const localTransport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => sessionId,
+        onsessioninitialized: async (sessionId: string) => {
+          testDebug(`create http session: ${sessionId}`);
+          await mcpServer.connect(serverBackendFactory, localTransport, true);
+        }
+      });
+  
+      localTransport.onclose = () => {
+        if (!localTransport.sessionId)
+          return;
+        sessions.delete(localTransport.sessionId);
+        testDebug(`delete http session: ${localTransport.sessionId}`);
+      };
+
+      // Manually trigger initialization by setting internal properties
+      // This mimics what happens during a normal initialization request
+      (localTransport as any).sessionId = sessionId;
+      (localTransport as any)._initialized = true;
+      
+      // Call the onsessioninitialized callback if provided
+      if ((localTransport as any)._onsessioninitialized) {
+        await Promise.resolve((localTransport as any)._onsessioninitialized(sessionId));
+      }
+
+      sessions.set(sessionId, localTransport);
+
+      return await localTransport.handleRequest(req, res);
     }
     return await transport.handleRequest(req, res);
   }
