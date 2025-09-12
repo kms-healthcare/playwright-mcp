@@ -1,0 +1,56 @@
+services:
+  playwright-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: playwright-mcp-server
+    ports:
+      - "${MCP_PORT:-8931}:8931"
+    environment:
+      - NODE_ENV=production
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    volumes:
+      # Optional: Mount output directory for files, screenshots, PDFs, etc.
+      - ./output:/app/output
+      # Optional: Mount config file (uncomment if you have a config.json file)
+      # - ./config.json:/app/config.json:ro
+    command: [
+      "--port", "8931",
+      "--host", "0.0.0.0",
+      "--output-dir", "/app/output"
+    ]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8931/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - playwright-network
+
+  # Optional: Add a simple health check service
+  health-check:
+    image: curlimages/curl:latest
+    container_name: playwright-mcp-health
+    depends_on:
+      - playwright-mcp
+    command: >
+      sh -c "
+        echo 'Waiting for Playwright MCP server to be ready...'
+        sleep 10
+        curl -f http://playwright-mcp:8931/mcp || exit 1
+        echo 'Playwright MCP server is healthy!'
+      "
+    networks:
+      - playwright-network
+    profiles:
+      - health-check
+
+networks:
+  playwright-network:
+    driver: bridge
+
+volumes:
+  output:
+    driver: local
