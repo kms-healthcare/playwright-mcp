@@ -24,7 +24,7 @@ import { ModalState } from './tools/tool.js';
 import type { Context } from './context.js';
 
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { readFileSync } from 'fs';
+import { readFileSync, unlinkSync } from 'fs';
 
 type PageEx = playwright.Page & {
   _snapshotForAI: () => Promise<string>;
@@ -140,6 +140,22 @@ export class Tab extends EventEmitter<TabEventsInterface> {
     this._consoleMessages.length = 0;
     this._recentConsoleMessages.length = 0;
     this._requests.clear();
+    this._cleanupTempFiles();
+  }
+
+  private _cleanupTempFiles() {
+    const tempFiles = (this as any)._tempFilePaths;
+    if (tempFiles && Array.isArray(tempFiles)) {
+      for (const filePath of tempFiles) {
+        try {
+          unlinkSync(filePath);
+        } catch (error) {
+          // Log cleanup errors but don't fail
+          console.warn(`Failed to clean up temporary file ${filePath}:`, error);
+        }
+      }
+      (this as any)._tempFilePaths = [];
+    }
   }
 
   private _handleConsoleMessage(message: ConsoleMessage) {

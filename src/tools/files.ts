@@ -84,16 +84,21 @@ const uploadFile = defineTabTool({
       });
 
       response.addResult(`Successfully uploaded ${localPaths.length} file(s) from S3`);
-    } finally {
-      // Clean up temporary local files
+      
+      // Store file paths for cleanup when tab closes/navigates
+      // Don't delete immediately as browser may need files during form submission
+      (tab as any)._tempFilePaths = ((tab as any)._tempFilePaths || []).concat(localPaths);
+      
+    } catch (error) {
+      // Clean up on error
       for (const localPath of localPaths) {
         try {
           unlinkSync(localPath);
-        } catch (error) {
-          // Log cleanup errors but don't fail the operation
-          console.warn(`Failed to clean up temporary file ${localPath}:`, error);
+        } catch (cleanupError) {
+          console.warn(`Failed to clean up temporary file ${localPath}:`, cleanupError);
         }
       }
+      throw error;
     }
   },
   clearsModalState: 'fileChooser',
