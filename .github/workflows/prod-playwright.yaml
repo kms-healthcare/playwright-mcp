@@ -61,7 +61,7 @@ jobs:
         id: get_username
         uses: mikefarah/yq@v4.42.1
         with:
-          cmd: yq e '.image.tag = "${{ needs.docker-ci.outputs.image-tag }}"' -i 'charts/playwright-mcp/values.prod.yaml'
+          cmd: yq e '.image.tag = "${{ needs.docker-ci.outputs.image-tag }}"' -i 'charts/playwright-mcp/values.dev.yaml'
 
       - name: Push changes to gitops
         run: |
@@ -69,7 +69,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
-          git commit --allow-empty -m "Deploy \"${{ needs.docker-ci.outputs.image-tag }}\" tag into 'charts/playwright-mcp/values.prod.yaml'"
+          git commit --allow-empty -m "Deploy \"${{ needs.docker-ci.outputs.image-tag }}\" tag into 'charts/playwright-mcp/values.dev.yaml'"
           git pull --rebase
           git push -u origin master
         shell: bash

@@ -73,6 +73,33 @@ async function handleSSE(serverBackendFactory: ServerBackendFactory, req: http.I
   res.end('Method not allowed');
 }
 
+async function handleHealth(req: http.IncomingMessage, res: http.ServerResponse, sseSessions: Map<string, SSEServerTransport>, streamableSessions: Map<string, StreamableHTTPServerTransport>) {
+  if (req.method !== 'GET') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'GET');
+    res.end('Method not allowed');
+    return;
+  }
+
+  const healthData = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || 'unknown',
+    uptime: process.uptime(),
+    sessions: {
+      sse: sseSessions.size,
+      streamable: streamableSessions.size,
+      total: sseSessions.size + streamableSessions.size
+    },
+    memory: process.memoryUsage(),
+    pid: process.pid
+  };
+
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(healthData, null, 2));
+}
+
 async function handleStreamable(serverBackendFactory: ServerBackendFactory, req: http.IncomingMessage, res: http.ServerResponse, sessions: Map<string, StreamableHTTPServerTransport>) {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
   if (sessionId) {
@@ -140,7 +167,9 @@ function startHttpTransport(httpServer: http.Server, serverBackendFactory: Serve
   const streamableSessions = new Map();
   httpServer.on('request', async (req, res) => {
     const url = new URL(`http://localhost${req.url}`);
-    if (url.pathname.startsWith('/sse'))
+    if (url.pathname === '/health')
+      await handleHealth(req, res, sseSessions, streamableSessions);
+    else if (url.pathname.startsWith('/sse'))
       await handleSSE(serverBackendFactory, req, res, url, sseSessions);
     else
       await handleStreamable(serverBackendFactory, req, res, streamableSessions);
@@ -148,6 +177,7 @@ function startHttpTransport(httpServer: http.Server, serverBackendFactory: Serve
   const url = httpAddressToString(httpServer.address());
   const message = [
     `Listening on ${url}`,
+    `Health check available at ${url}/health`,
     'Put this in your client config:',
     JSON.stringify({
       'mcpServers': {
